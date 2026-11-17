@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dezernatsquiz</title>
+<style>
+  :root { --navy:#1d3b63; --blau:#2c5282; --hell:#e9eef4; --rand:#a8b3c0; --text:#1c2430; --rot:#a32a2a; --gruen:#2d6a3a; --gold:#c9a227; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 Verdana, Tahoma, Geneva, sans-serif; color:var(--text); background:#e3e7ec; }
+  header { background:linear-gradient(#35629b,var(--navy)); color:#fff; padding:9px 12px; border-bottom:3px solid var(--gold); }
+  header b { font-size:17px; letter-spacing:.2px; }
+  header small { display:block; font-size:11px; opacity:.85; }
+  header span { float:right; font-size:11px; background:rgba(0,0,0,.25); padding:2px 6px; border:1px solid rgba(255,255,255,.3); }
+  #pfad { background:#d5dde7; border-bottom:1px solid var(--rand); padding:4px 12px; font-size:12px; color:#33425a; }
+  main { max-width:560px; margin:10px auto; padding:0 8px; }
+  footer { max-width:560px; margin:0 auto 14px; padding:0 8px; font-size:11px; color:#667; text-align:center; }
+  .box { background:#fff; border:1px solid var(--rand); margin-bottom:10px; }
+  .box h2 { margin:0; padding:5px 10px; font-size:13px; background:linear-gradient(#f3f6fa,#cfd9e5); border-bottom:1px solid var(--rand); color:var(--navy); }
+  .box h2::before { content:'\25AA\00a0'; color:var(--gold); }
+  .inh { padding:10px; }
+  input[type=text], input[type=password], input[type=number], textarea { width:100%; padding:7px; font:inherit; border:1px solid #6f87a3; background:#fbfcfe; }
+  button { font:inherit; padding:7px 13px; border:1px solid #4a5f7a; background:linear-gradient(#ffffff,#d3dce7); color:var(--text); cursor:pointer; border-radius:2px; }
+  button:active { background:#bfccdb; }
+  button:disabled { color:#888; border-color:#b5bcc6; background:#eef0f3; cursor:default; }
+  button.pri { background:linear-gradient(#4f7fb5,var(--navy)); color:#fff; border-color:#13294a; }
+  button.pri:disabled { background:#aab6c6; border-color:#8e9bb0; color:#eef; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid #e08a00; outline-offset:1px; }
+  .opt { display:block; width:100%; text-align:left; margin-bottom:6px; }
+  .opt.sel { background:linear-gradient(#fff1bf,#f0d37a); border-color:#8a6a00; font-weight:bold; }
+  .fehler { color:var(--rot); margin-top:6px; }
+  .ok { color:var(--gruen); }
+  .timer { float:right; font-weight:bold; }
+  .warn { color:var(--rot); }
+  .klein { font-size:12px; color:#556; }
+  img.bild { max-width:100%; display:block; margin:8px 0 2px; border:1px solid var(--rand); cursor:zoom-in; }
+  #lb { display:none; position:fixed; inset:0; z-index:50; background:rgba(10,20,35,.93); flex-direction:column; align-items:center; justify-content:center; padding:10px; cursor:zoom-out; }
+  #lb.an { display:flex; }
+  #lb img { max-width:100%; max-height:calc(100% - 30px); object-fit:contain; }
+  #lb span { color:#dfe6ee; font-size:12px; margin-top:8px; }
+  table { border-collapse:collapse; width:100%; }
+  td, th { border:1px solid var(--rand); padding:4px 7px; text-align:left; }
+  th { background:var(--hell); font-weight:normal; color:var(--navy); }
+  .eig { margin-bottom:10px; font-size:12px; }
+  .eig th { width:36%; }
+  .eig .timer { float:none; }
+  .grid button { width:16%; padding:8px 0; margin:1%; }
+  .grid button.aktiv { background:linear-gradient(#fff1bf,#f0d37a); border-color:#8a6a00; font-weight:bold; }
+  .grid button.gespielt { background:linear-gradient(#e0f0e0,#b5d6b8); border-color:#2d6a3a; color:#1f4a28; }
+  .grid button.aktiv { background:linear-gradient(#fff1bf,#f0d37a); border-color:#8a6a00; color:var(--text); }
+  .grid td { border:0; padding:0; }
+  .grid th { border:0; background:none; }
+</style>
+</head>
+<body>
+<header><span id="status">verbinde …</span><b>Dezernatsquiz</b><small>Dokumentenmanagementsystem · Hochschulverwaltung</small></header>
+<div id="pfad">Start</div>
+<main id="app"></main>
+<div id="lb" onclick="this.classList.remove('an')"><img id="lbimg" alt=""><span>Tippen zum Schließen</span></div>
+<footer>Dezernatsquiz DMS · Version 3.2.1 · Alle Angaben ohne Gewähr</footer>
+
+<script src="config.js"></script>
+<script>
+/* ===== 1. EINSTELLUNGEN ===== */
+const API = (window.QUIZ_CONFIG || {}).API || 'HIER_WEB_APP_URL_EINTRAGEN';   // kommt aus config.js
+const RUNDEN = 7, FRAGEN_PRO_RUNDE = 5;
+
+/* ===== 2. FRAGEN (Platzhalter – hier eigene Fragen eintragen) =====
+   Schlüssel "Runde-Frage". typ: 'mc' (Auswahl), 'offen' (Text), 'schaetz' (Zahl),
+   'mcoffen' (Auswahl plus offenes Feld; optional offenLabel:'Begründung', offenPflicht:false)
+   bild: optionale Bild-URL (z. B. Sciebo-Freigabe-Link mit /download am Ende) */
+const EIGENE = {
+  '1-1': { typ:'mc',     text:'Welcher Buchstabenkombination begegnet man bei einem Spaziergang durch das UHG der Uni Bielefeld?', optionen:['END','DIY','WTF','FYI'], bild:'' },
+  '1-2': { typ:'mc',    text:'Wie viele Mitarbeitende arbeiten an der Uni Bielefeld aktuell (dezentral und zentral)?', optionen:['ca. 10.000', 'ca. 3.500', 'ca. 500', 'rund die Hälfte'], bild: ''},
+  '1-3': { typ:'mcoffen',     text:'Wie hieß das X-Gebäude zeitweise während seines Baus? Und wofür stand das Akronym?', optionen:['ENUS','NASA','X-Gbd.','FSB'], offenLabel:'Antwort', bild:'' },
+  '1-4': { typ:'offen',  text:'Wofür war die alte Mensa im UHG der Uni Bielefeld bekannt?', bild:'' },
+  '1-5': { typ: 'mc',   text:'Schön und/oder Praktisch: Wer oder was ist die Uni-Noppe? ', optionen:['das neue Kondom im Uni-Shop ', 'der gummiartige Bodenbelag im Universitätshauptgebäude', 'das bremsende Material auf der Unterseite von Stoppersocken', 'die erhabene Struktur auf Klemmbausteinen wie z.B. Legos'], bild: ''}, // weitere Fragen nach demselben Muster: '2-1': { ... }
+
+  '2-1': { typ:'mc',     text:'Aus welchem deutschen Filmklassiker stammt das Zitat "Entschuldige, das ist mein erster Ruhestand. Ich übe noch." ', optionen:['Manta Manta','Kein Pardon','Pappa Ante Portas','Fack ju Göhte'], bild:'' },
+  '2-2': { typ:'mcoffen',     text:'Aus welchem Film stammt der folgende Screenshot? Und im welchem Jahr erschien dieser?', optionen:['Santa Clause','Polarexpress','Der Grinch','Nightmare before Christmas'], offenLabel:'Antwort', bild:'bilder/2-2.webp' },
+  '2-3': { typ:'offen',     text:'Wer ist der Interpret dieses Songs? Kennt ihr auch Titel und Erscheinungsjahr?', bild:'' },
+  '2-4': { typ:'offen',     text:'Woher stammt der Begriff Blockbuster?', bild:'' },
+  '2-5': { typ:'mc',     text:'Warum benötigen Asterix und Obelix den Passierschein A38?', optionen:['Weil die römische Verwaltung erst dann eine Erlaubnis zum Gehen ausstellt, wenn zuvor der Antrag auf die Prüfung des ersten Antrags korrekt eingereicht und abgestempelt wurde.','Weil sie das Verwaltungsgebäude erst dann wieder verlassen dürfen, wenn sie das Dokument vorgelegt haben, das ihnen nach erfolgreichem Beantragen des vorherigen Dokuments offiziell bestätigt, dass sie überhaupt dort gewesen sind.','Weil ohne den ordnungsgemäß genehmigten Nachweis, dass sie überhaupt einen Passierschein beantragen durften, niemand den Ausgang freigibt.','Weil das Verlassen des Gebäudes nur dann gestattet ist, wenn ein ordnungsgemäß abgestempelter Nachweis darüber vorliegt, dass der zuständige Beamte den Antrag zur Einsichtnahme in den Bearbeitungsstatus persönlich zur Kenntnis genommen hat.'], bild:'bilder/2-5.webp' },
+
+  '3-1': { typ:'mc',     text:'In welchem Jahr wurde die erste Antibabybille in den USA der Öffentlichkeit zugänglich gemacht?', optionen:['1960','1969','1974','1980'], bild:'' },
+  '3-2': { typ:'offen',     text:'Wie heißt das Stadion der Arminia Bielefeld und wie kam es zu seinem Namen? ', bild:'' },
+  '3-3': { typ:'mc',     text:'Wer war Penthesilea?', optionen:['Eine Nymphe, die Quellen bewachte.','Eine Königin der Amazonen, die im Trojanischen Krieg an der Seite der Trojaner kämpfte.','Die Erfinderin des Webstuhls.','Eine Schwester von Zeus.'], bild:'' },
+  '3-4': { typ:'mcoffen',     text:'Welches Land führte als erstes das Frauenwahlrecht ein? Und in welchem Jahr genau?', optionen:['Frankreich','Neuseeland','Schweden','Großbritannien'], offenLabel:'Antwort', bild:'' },
+  '3-5': { typ:'mc',     text:'Welcher Vertrag beendete 1648 den dreißigjährigen Krieg? ', optionen:['Vertrag von Versailles','Der Westfälische Friede','Wiener Kongress','Prager Frieden'], bild:'' },
+
+  '4-1': { typ:'mc',     text:'Wie ist eine Person, die man als larmoyant bezeichnet? ', optionen:['weinerlich','laut','selbstbezogen','beschränkt'], bild:'' },
+  '4-2': { typ:'offen',     text:'Welches deutsche Sprichwort verbirgt sich in diesem Bilderrätsel?', bild:'bilder/4-2.png' },
+  '4-3': { typ:'mc',     text:'Welches Gas lässt Brot beim Backen aufgehen?', optionen:['Wasserstoff','Stickstoff','Sauerstoff','Kohlendioxid'], bild:'' },
+  '4-4': { typ:'mc',     text:'Welches ist das tödlichste Tier überhaupt? ', optionen:['Mücke','Kuh','Krokodil','Coyote'], bild:'' },
+  '4-5': { typ:'mc',     text:'Wo befindet sich der kleinste Knochen im menschlichen Körper?', optionen:['Wirbelsäule','Ohr','Fuß','Finger'], bild:'' },
+
+  '5-1': { typ:'mc',     text:'2027 eröffnet in Brandenburg der erste Freizeitpark, dessen Protagonist*innen aus einem Hörspiel bekannt sind. Um welche Protagonist*innen drehen sich die Attraktionen in diesem Freizeitpark?', optionen:['Sandmännchen','Drei Fragezeichen','Fünf Freunde','Bibi & Tina'], bild:'' },
+  '5-2': { typ:'mc',     text:'Die Planungen für den nächsten Dezernatstag laufen schon. Welches Museum ist in Bielefeld? ', optionen:['Gießkannenmuseum','Fächermuseum','Dackelmuseum','Märchenmuseum'], bild:'' },
+  '5-3': { typ:'mc',     text:'Wofür steht die Abkürzung „ISO“ in der Fotografie?', optionen:['Internationale Schattenordnung','Objektiv-Schärfe-Optimierung','Lichtempfindlichkeit des Sensors/Films','Bildstabilisierungsmodus'], bild:'' },
+  '5-4': { typ:'offen',     text:'Manchmal liegt der Wahnsinn sehr nah am künstlerischen Schaffen. Von wem stammt diese weltbekannte Kunstinstallation?', bild:'bilder/5-4.jpg' },
+  '5-5': { typ:'mc',     text:'Wer schrieb das siebte Kreuz?', optionen:['Anna Seghers','Christa Wolf','Lion Feuchtwanger','Bertolt Brecht'], bild:'' },
+
+  '6-1': { typ:'mc',     text:'"Nett hier, aber waren Sie schon mal in […]" als Aufkleber findet sich mittlerweile an jedem Touristenhotspot. Welche Region hat sich das Original ausgedacht?', optionen:['Steiermark','Baden-Württemberg','Berlin','OWL'], bild:'bilder/6-1.jpeg' },
+  '6-2': { typ:'mc',     text:'Welches ist die am längsten über Wasser liegende Bergkette?', optionen:['Alpen','Anden','Uralgebirge','Himalaya'], bild:'' },
+  '6-3': { typ:'mc',     text:'Woraus besteht ein traditionell norddeutscher Labskaus?', optionen:['Aus Sauerkraut, Schweinebraten, Knödeln und Bratensoße','Aus Hering, Salzkartoffeln, Dill und saurer Sahne','Aus gepökeltem Rindfleisch, Kartoffeln, Zwiebeln und Roter Bete','Aus Kartoffeln, Matjes, Äpfeln und sauren Gurken']},
+  '6-4': { typ:'offen',     text:'Manchmal muss man für Leckereien nicht weit fahren. Wie nennt sich die ostwestfälische Spezialität aus Kartoffeln?', bild:'bilder/6-4.webp' },
+  '6-5': { typ:'offen',     text:'Welche Skyline erkennt man auf diesem Bild?', bild:'bilder/6-5.jpg' },
+
+  '7-1': { typ:'offen',     text:'Bonusrunde: Grillt das Quizteam mit euren Fragen! Bitte nur eintragen, was ihr selbst beantworten könnt.', bild:'bilder/6-5.jpg' },
+  // weitere Fragen nach demselben Muster: '2-1': { ... }
+};
+function frage(key) {
+  return EIGENE[key] || { typ:'offen', text:'Platzhalter für Frage ' + key.replace('-', '.'), bild:'' };
+}
+
+/* ===== 3. Hilfsfunktionen ===== */
+const $app = document.getElementById('app'), $st = document.getElementById('status');
+const MASTER = location.search.includes('master');
+let pw = '', team = localStorage.getItem('team') || '', fehler = '', letzterStand = '';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+// fetch mit Zeitlimit: eine hängende Abfrage darf die Aktualisierung nicht dauerhaft blockieren
+function ft(url, opt) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), 8000);
+  return fetch(url, Object.assign({}, opt, { signal: c.signal })).finally(() => clearTimeout(t));
+}
+async function post(o) {
+  const r = await ft(API, { method:'POST', body: JSON.stringify(o) });  // text/plain, kein Preflight
+  return r.json();
+}
+async function stand() { const r = await ft(API); return r.json(); }
+
+/* Timer: Zeitbasis kommt vom Server, daher laufen alle Handys synchron */
+let Z = { current:'', locked:false, start:0, dauer:120, off:0 };
+function setZ(s) { Z = { current:s.current, locked:s.locked, start:s.start, dauer:s.dauer, off:s.now - Date.now() }; }
+function rest() { return Z.current && Z.start ? Math.max(0, Math.ceil((Z.start + Z.dauer * 1000 - (Date.now() + Z.off)) / 1000)) : 0; }
+function tt() {
+  if (Z.locked) return 'gesperrt';
+  const r = rest();
+  return r ? Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0') : 'Zeit abgelaufen';
+}
+
+/* ===== 4. Teilnehmer ===== */
+async function anmelden() {
+  const name = document.getElementById('tn').value.trim();
+  let r;
+  try { r = await post({ a:'join', team:name }); }
+  catch (e) { r = { ok:false, error: API.startsWith('HIER') ? 'Die API-URL ist in index.html noch nicht eingetragen.' : 'Keine Verbindung zum Quiz-Server. Bitte später erneut versuchen.' }; }
+  if (r.ok) { team = name; put('team', name); fehler = ''; letzterStand = ''; tick(); }
+  else { fehler = r.error; zeigeAnmeldung(); }
+}
+function pfad(t) { document.getElementById('lb').classList.remove('an'); document.getElementById('pfad').textContent = 'Start › ' + t; }
+function zoom(src) { document.getElementById('lbimg').src = src; document.getElementById('lb').classList.add('an'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('lb').classList.remove('an'); });
+function zeigeAnmeldung() {
+  pfad('Anmeldung');
+  $app.innerHTML = `<div class="box"><h2>Anmeldung</h2><div class="inh">
+    <strong> Willkommen zum Dezernatsquiz </strong>
+    <p>Tragt hier euren Teamnamen ein. Elektronische Hilfe ist strengstens untersagt und führt zu fristloser Kündigung. Jede Antwort ist durch jedes Gruppenmitglied mitbestimmungspflichtig.</p>
+    <input type="text" id="tn" maxlength="30" placeholder="Verantwortliche Sachbearbeitung" autocomplete="off">
+    <p><button class="pri" onclick="anmelden()">Anmelden</button></p>
+    <div class="fehler">${esc(fehler)}</div></div></div>`;
+}
+function zeigeFrage(s) {
+  const f = frage(s.current), [r, n] = s.current.split('-');
+  pfad('Dezernatsquiz › Runde ' + r + ' › Frage ' + n);
+  const gesendet = get('ant-' + s.current);
+  let eingabe = '';
+  if (gesendet !== null) eingabe = `<p class="ok">Antwort abgegeben: <b>${esc(gesendet)}</b></p>`;
+  else if (s.locked || rest() === 0) eingabe = `<p class="fehler">Die Antwortzeit ist vorbei. Antworten sind nicht mehr möglich.</p>`;
+  else if (f.typ === 'mcoffen') { gewaehlt = ''; eingabe = (f.optionen || []).map(o => `<button class="opt" onclick="waehle(this)" data-v="${esc(o)}">${esc(o)}</button>`).join('')
+    + `<p class="klein" id="wahl">Zuerst eine Antwort antippen.</p>
+       <p><b>${esc(f.offenLabel || 'Eure Begründung')}${f.offenPflicht === false ? ' (optional)' : ''}</b></p>
+       <textarea id="offen" rows="3" placeholder="Hier eintragen"></textarea>
+       <p><button class="pri" id="bestaetigen" disabled onclick="sendeMcOffen(${f.offenPflicht === false ? 'false' : 'true'})">Antwort bestätigen</button></p>`; }
+  else if (f.typ === 'mc') { gewaehlt = ''; eingabe = (f.optionen || []).map(o => `<button class="opt" onclick="waehle(this)" data-v="${esc(o)}">${esc(o)}</button>`).join('')
+    + `<p class="klein" id="wahl">Antwort antippen, dann bestätigen. Bis zur Bestätigung könnt ihr noch wechseln.</p>
+       <p><button class="pri" id="bestaetigen" disabled onclick="sende(gewaehlt)">Antwort bestätigen</button></p>`; }
+  else if (f.typ === 'schaetz') eingabe = `<input type="number" id="ant" inputmode="decimal" placeholder="Eure Schätzung"><p><button class="pri" onclick="sende(document.getElementById('ant').value)">Antwort senden</button></p>`;
+  else eingabe = `<textarea id="ant" rows="3" placeholder="Eure Antwort"></textarea><p><button class="pri" onclick="sende(document.getElementById('ant').value)">Antwort senden</button></p>`;
+  $app.innerHTML = `<div class="box"><h2>Vorgang bearbeiten</h2><div class="inh">
+    <table class="eig"><tr><th>Vorgang</th><td>Runde ${r} von ${RUNDEN}, Frage ${n} von ${FRAGEN_PRO_RUNDE}</td></tr><tr><th>Bearbeitungsfrist</th><td><span class="timer">${tt()}</span></td></tr><tr><th>Sachbearbeitung</th><td>${esc(team)}</td></tr></table>
+    <p><b>${esc(f.text)}</b></p>${f.bild ? `<img class="bild" src="${esc(f.bild)}" alt="" onclick="zoom(this.src)"><p class="klein">Bild antippen zum Vergrößern</p>` : ''}
+    ${eingabe}<div class="fehler" id="fe">${esc(fehler)}</div></div></div>`;
+}
+function zeigeWarten() {
+  pfad('Dezernatsquiz › Wartebereich');
+  $app.innerHTML = `<div class="box"><h2>Bitte warten</h2><div class="inh">
+    <p>Zurzeit liegt kein Vorgang zur Bearbeitung vor. Die Quizleitung gibt den nächsten Vorgang frei. Diese Seite aktualisiert sich selbst.</p>
+    <p class="klein">Team: ${esc(team)}</p></div></div>`;
+}
+let gewaehlt = '';
+function sendeMcOffen(pflicht) {
+  const t = document.getElementById('offen').value.trim();
+  if (!gewaehlt) { document.getElementById('fe').textContent = 'Bitte eine Antwort auswählen.'; return; }
+  if (pflicht && !t) { document.getElementById('fe').textContent = 'Bitte auch das offene Feld ausfüllen.'; return; }
+  sende(gewaehlt + (t ? ' | ' + t : ''));
+}
+function waehle(btn) {
+  gewaehlt = btn.dataset.v;
+  document.querySelectorAll('.opt').forEach(o => o.classList.toggle('sel', o === btn));
+  document.getElementById('wahl').textContent = 'Ausgewählt: ' + gewaehlt;
+  const b = document.getElementById('bestaetigen');
+  b.disabled = false; b.textContent = 'Antwort bestätigen: ' + gewaehlt;
+}
+async function sende(v) {
+  v = String(v || '').trim();
+  if (!v) { fehler = 'Bitte eine Antwort eingeben.'; document.getElementById('fe').textContent = fehler; return; }
+  const key = letzterStand.split('|')[0];
+  const r = await post({ a:'answer', team, key, answer:v });
+  if (r.ok) { put('ant-' + key, v); fehler = ''; } else fehler = r.error;
+  letzterStand = ''; tick();
+}
+
+/* ===== 5. Quizmaster ===== */
+async function master(aktion, key) {
+  const r = await post({ a:aktion, pw, key });
+  if (!r.ok) { fehler = r.error; pw = ''; return zeigeLogin(); }
+  fehler = ''; setZ(r); zeigeMaster(r);
+}
+function zeigeLogin() {
+  pfad('Verwaltung › Anmeldung');
+  $app.innerHTML = `<div class="box"><h2>Quizmaster</h2><div class="inh">
+    <input type="password" id="pw" placeholder="Passwort">
+    <p><button class="pri" onclick="pw=document.getElementById('pw').value;master('status')">Anmelden</button></p>
+    <div class="fehler">${esc(fehler)}</div></div></div>`;
+}
+function zeigeMaster(s) {
+  pfad('Verwaltung › Quizleitung');
+  const g = s.gespielt || [];
+  let z = '';
+  for (let r = 1; r <= RUNDEN; r++) {
+    z += `<tr><th>Runde ${r}</th><td>`;
+    for (let n = 1; n <= FRAGEN_PRO_RUNDE; n++) {
+      const k = r + '-' + n;
+      z += `<button class="${k === s.current ? 'aktiv' : g.includes(k) ? 'gespielt' : ''}" onclick="master('release','${k}')">${n}${g.includes(k) && k !== s.current ? ' ✓' : ''}</button>`;
+    }
+    z += '</td></tr>';
+  }
+  const f = s.current ? frage(s.current) : null;
+  $app.innerHTML = `<div class="box"><h2>Vorgang freigeben</h2><div class="inh">
+    <table class="grid">${z}</table><p class="klein">Gelb = aktuelle Frage · Grün mit Haken = bereits gespielt</p></div></div>
+    <div class="box"><h2>Aktuell: ${s.current ? 'Frage ' + s.current.replace('-', '.') + (s.locked ? ' (gesperrt)' : ' (offen)') : 'keine'}<span class="timer">${s.current ? tt() : ''}</span></h2><div class="inh">
+    ${f ? `<p>${esc(f.text)}</p>` : ''}
+    <p><button onclick="master('${s.locked ? 'unlock' : 'lock'}')" ${s.current ? '' : 'disabled'}>${s.locked ? 'Wieder öffnen' : 'Antworten sperren'}</button>
+       <button onclick="master('hide')" ${s.current ? '' : 'disabled'}>Frage ausblenden</button></p></div></div>
+    <div class="box"><h2>Rückmeldungen${s.current ? ' (' + s.answered.length + ' von ' + s.teams.length + ')' : ''}</h2><div class="inh"><table>
+    ${s.teams.length ? s.teams.map(t => `<tr><td>${esc(t)}</td><td>${s.current && s.answered.includes(t) ? '<span class="ok">hat geantwortet</span>' : '<span class="klein">–</span>'}</td></tr>`).join('') : '<tr><td class="klein">Noch keine Teams angemeldet.</td></tr>'}
+    </table></div></div>
+    <div class="box"><h2>Neues Quiz</h2><div class="inh">
+    <button onclick="if (confirm('Wirklich alles zurücksetzen? Alle Teams werden abgemeldet, die Fragen ausgeblendet.')) master('reset')">Alles zurücksetzen</button>
+    <p class="klein">Die bisherigen Blätter „Teams“ und „Antworten“ bleiben im Sheet als Archiv mit Datum erhalten.</p>
+    <p class="klein">Backend-Version: ${esc(s.version || 'ALT – bitte Code.gs als neue Version bereitstellen')}</p></div></div>`;
+}
+
+/* ===== 6. Abfrage-Schleife ===== */
+let laeuft = false;   // verhindert, dass sich langsame Abfragen stauen
+async function tick() {
+  if (laeuft) return;
+  laeuft = true;
+  try {
+    if (MASTER) { if (pw) { const r = await post({ a:'status', pw }); if (r.ok) { setZ(r); zeigeMaster(r); } } else if (!$app.innerHTML) zeigeLogin(); }
+    else {
+      if (!team && !document.getElementById('tn')) zeigeAnmeldung();   // Anmeldung immer zeigen, auch ohne Verbindung
+      const s = await stand(); setZ(s);
+      if (String(s.epoche) !== get('epoche')) {      // Quizmaster hat zurückgesetzt: lokale Daten löschen
+        try { Object.keys(localStorage).filter(k => k === 'team' || k.startsWith('ant-')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+        put('epoche', String(s.epoche)); team = ''; letzterStand = '';
+      }
+      if (!team) { if (!document.getElementById('tn')) zeigeAnmeldung(); }
+      else {
+        const sig = s.current + '|' + s.locked + '|' + s.start;
+        if (sig !== letzterStand) { letzterStand = sig; s.current ? zeigeFrage(s) : zeigeWarten(); }
+      }
+    }
+    $st.textContent = 'verbunden';
+  } catch (e) { $st.textContent = 'keine Verbindung'; $st.title = String(e); }
+  finally { laeuft = false; }
+}
+// Abfrage-Takt in Millisekunden: Teilnehmer schnell, Quizleitung etwas langsamer (liest das Sheet)
+const POLL = MASTER ? 2500 : Math.max(700, Number((window.QUIZ_CONFIG || {}).POLL) || 1500);
+tick(); setInterval(tick, POLL);
+let warAb = null;
+setInterval(() => {                       // jede Sekunde: Anzeige aktualisieren
+  const r = rest(), ab = Z.current && r === 0;
+  document.querySelectorAll('.timer').forEach(e => { e.textContent = tt(); e.classList.toggle('warn', r > 0 && r <= 10); });
+  if (warAb !== null && ab && !warAb && !MASTER && team) { letzterStand = ''; tick(); }  // Eingabe sperren
+  warAb = ab;
+}, 1000);
+</script>
+</body>
+</html>
