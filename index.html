@@ -85,7 +85,7 @@ const EIGENE = {
   '3-1': { typ:'mc',     text:'In welchem Jahr wurde die erste Antibabybille in den USA der Öffentlichkeit zugänglich gemacht?', optionen:['1960','1969','1974','1980'], bild:'' },
   '3-2': { typ:'offen',     text:'Wie heißt das Stadion der Arminia Bielefeld und wie kam es zu seinem Namen? ', bild:'' },
   '3-3': { typ:'mc',     text:'Wer war Penthesilea?', optionen:['Eine Nymphe, die Quellen bewachte.','Eine Königin der Amazonen, die im Trojanischen Krieg an der Seite der Trojaner kämpfte.','Die Erfinderin des Webstuhls.','Eine Schwester von Zeus.'], bild:'' },
-  '3-4': { typ:'mcoffen',     text:'Welches Land führte als erstes das Frauenwahlrecht ein? Und in welchem Jahr genau?', optionen:['Frankreich','Neuseeland','Schweden','Großbritannien'], offenLabel:'Antwort', bild:'' },
+  '3-4': { typ:'offen',     text:'Bringe die folgenden Länder in die chronologische Reihenfolge der Einführung des Frauenwahlrechts, vom frühesten zum spätesten- a) Großbritannien, b) Schweiz, c) Neuseeland, d) Frankreich', bild:'' },
   '3-5': { typ:'mc',     text:'Welcher Vertrag beendete 1648 den dreißigjährigen Krieg? ', optionen:['Vertrag von Versailles','Der Westfälische Friede','Wiener Kongress','Prager Frieden'], bild:'' },
 
   '4-1': { typ:'mc',     text:'Wie ist eine Person, die man als larmoyant bezeichnet? ', optionen:['weinerlich','laut','selbstbezogen','beschränkt'], bild:'' },
@@ -106,7 +106,7 @@ const EIGENE = {
   '6-4': { typ:'offen',     text:'Manchmal muss man für Leckereien nicht weit fahren. Wie nennt sich die ostwestfälische Spezialität aus Kartoffeln?', bild:'bilder/6-4.webp' },
   '6-5': { typ:'offen',     text:'Welche Skyline erkennt man auf diesem Bild?', bild:'bilder/6-5.jpg' },
 
-  '7-1': { typ:'offen',     text:'Bonusrunde: Grillt das Quizteam mit euren Fragen! Bitte nur eintragen, was ihr selbst beantworten könnt.', bild:'bilder/6-5.jpg' },
+  '7-1': { typ:'offen',     text:'Bonusrunde: Grillt das Quizteam mit euren Fragen! Bitte nur eintragen, was ihr selbst beantworten könnt.' },
   // weitere Fragen nach demselben Muster: '2-1': { ... }
 };
 function frage(key) {
@@ -209,14 +209,25 @@ async function sende(v) {
   v = String(v || '').trim();
   if (!v) { fehler = 'Bitte eine Antwort eingeben.'; document.getElementById('fe').textContent = fehler; return; }
   const key = letzterStand.split('|')[0];
-  const r = await post({ a:'answer', team, key, answer:v });
-  if (r.ok) { put('ant-' + key, v); fehler = ''; } else fehler = r.error;
+  let r;
+  try { r = await post({ a:'answer', team, key, answer:v }); }
+  catch (e) {   // Eingaben bleiben stehen, damit das Team es einfach noch einmal versuchen kann
+    document.getElementById('fe').textContent = 'Keine Verbindung. Bitte noch einmal absenden.';
+    return;
+  }
+  if (r.ok) { put('ant-' + key, v); fehler = ''; }
+  else {
+    fehler = r.error;
+    if (/bereits/.test(r.error || '')) { put('ant-' + key, '(bereits übermittelt)'); fehler = ''; }
+  }
   letzterStand = ''; tick();
 }
 
 /* ===== 5. Quizmaster ===== */
 async function master(aktion, key) {
-  const r = await post({ a:aktion, pw, key });
+  let r;
+  try { r = await post({ a:aktion, pw, key }); }
+  catch (e) { alert('Keine Verbindung. Bitte noch einmal versuchen.'); return; }
   if (!r.ok) { fehler = r.error; pw = ''; return zeigeLogin(); }
   fehler = ''; setZ(r); zeigeMaster(r);
 }
